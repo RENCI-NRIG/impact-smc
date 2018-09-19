@@ -1,0 +1,17 @@
+<html>
+<head>
+<title>How to use the ImPACT SMC REST I/F</title>
+</head>
+
+<body>
+<p>Using the ImPACT SMC REST Interface:
+</p>
+<li>
+/v1/cohortQuery?patientAttribute=attributename&attrValue=valueToSearchOn&relay=[01]<br>
+<i>ex:</i> /v1/cohortQuery?patientAttribute=wheezing&attrValue=1&relay=0<br>
+ relay: 0 or missing is an originating query, 1 means this has been sent to other sites by the originating query.
+</li>
+
+
+</body>
+</html>

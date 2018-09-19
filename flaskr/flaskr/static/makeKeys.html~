@@ -1,0 +1,22 @@
+<html>
+<head>
+<title>Count potential study participants</title>
+</head>
+
+<body>
+<p>In the blank below, enter the proposed study name (I strongly suggest "study1")
+and click "Count them".
+
+</p>
+
+<form action="/v2/cohortQuery">
+<input type="text" name="ccc">
+<br>
+<br>
+<input type="submit">
+</form>
+
+
+
+</body>
+</html>

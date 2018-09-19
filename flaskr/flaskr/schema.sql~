@@ -1,0 +1,20 @@
+drop table if exists entries;
+create table entries (
+  id integer primary key autoincrement,
+  title text not null,
+  'text' text not null
+);
+
+drop table if exists patients;
+create table patients (
+  patientName text,
+  wheezing integer
+);
+
+
+insert into patients VALUES ('Fred',0);
+insert into patients VALUES ('Barney',0);
+insert into patients VALUES ('Pebbles',0);
+insert into patients VALUES ('BamBam',0);
+
+
