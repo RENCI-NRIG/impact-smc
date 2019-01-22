@@ -5,6 +5,7 @@ import sys
 import subprocess
 import re
 import runpy
+import json
 
 import urllib.request
 from flask import Flask, request, session, g, redirect, url_for, abort, render_template, flash
@@ -43,30 +44,50 @@ def close_db(error):
     if hasattr(g, 'sqlite_db'):
         g.sqlite_db.close()
 
-def init_db():
-    db = get_db()
-    with app.open_resource('schema.sql', mode='r') as f:
-        db.cursor().executescript(f.read())
-    db.commit()
-
-@app.cli.command('initdb')
-def initdb_command():
-    """Initializes the database."""
-    init_db()
-    print('Initialized the database.')
-
 #@app.route('/')
-#def show_entries():
-#    db = get_db()
-#    cur = db.execute('select title, text from entries order by id desc')
-#    entries = cur.fetchall()
-#    return render_template('show_entries.html', entries=entries)
 
 @app.route('/vvv/tester')
 def tester():
     ccc = request.args.get('ccc', None)
     print (ccc)
     return ("tester: ok.")
+
+def isICEES():
+    with open('/home/ec2-user/ICEES') as f:
+        useICEES = f.readline().strip()
+    if useICEES == "True":
+        return (True)
+    else:
+        return (False)
+
+
+def doICEESquery(ccc):
+    ICEEScmd = '/home/ec2-user/impact-bin/runICEES.sh ' + ccc
+    CallerResult = subprocess.run(ICEEScmd, shell = True, stdout=subprocess.PIPE)
+    with open("/tmp/ICEESstdout") as f:
+        returnedICEESdata = json.load(f)
+    patientCount = returnedICEESdata["return value"]["size"]
+    return(patientCount)
+
+
+def queryForMatchCount(ccc, dbase):
+    if isICEES() :
+        localCount = doICEESquery(ccc)
+    else:
+        conn = sqlite3.connect(app.config['DATABASE'])
+        c=conn.cursor()
+        query ="select candidatecount from candidates where study = '" + ccc + "' ;"
+        print('Query='+ query)
+        c.execute(query)
+        data=c.fetchone()
+        if data is None:
+            localCount = 222222
+        else:
+            localCount = int(data[0])
+    return(str(localCount))        
+
+    
+
 
 
 @app.route('/v2/cohortQuery')
@@ -76,21 +97,13 @@ def cohortQuery():
     print(requestQueryString)
     ccc = request.args.get('ccc', '0')
 
-# First Step: do our own database query for cohort count
-    conn = sqlite3.connect(app.config['DATABASE'])
-    c=conn.cursor()
-    query ="select candidatecount from candidates where study = '" + ccc + "' ;"
-    print('Query='+ query)
-    c.execute(query)
-    data=c.fetchone()
-    if data is None:
-        localCount = 222222
-    else:
-        localCount = int(data[0])
-    localCountResultString = str(localCount)
+# First Step: do our own database query OR AN "ICEES" QUERY for cohort count
+
+    localCountResultString = queryForMatchCount(ccc, app.config['DATABASE'])
 
 # Secondly: start the Server.x process to assign SPDZ connections to clients
-
+# NOTE: NOW RUNNING SPDZ/2 IN PEER-TO-PEER, SERVERLESS MODE. WILL
+# PROBABLY REMOVE THIS CODE VERY SOON.
 #    serverxcmd = '/home/ec2-user/impact-bin/startServer.sh'
 #    CallerResult = subprocess.run(serverxcmd, shell = True, stdout=subprocess.PIPE)
 
@@ -99,30 +112,33 @@ def cohortQuery():
         others = f.read().splitlines()
     with open('/home/ec2-user/me') as g:
         me = g.read().splitlines()
+    with open('/home/ec2-user/port') as h:
+        portNum = h.readline().strip()
 
 # Third: start the remote queries that fetch their value and use the SPDZ client
 # to do their computations. We don't even care about the return values.
 
     qstr=[]
-    qstr.append('http://' + others[0].strip() + '/v2/cohortCoordinatedQuery?ccc=' + ccc + '&host=' + me[0].strip() + '&party=1')
-    qstr.append('http://' + others[1].strip() + '/v2/cohortCoordinatedQuery?ccc=' + ccc + '&host=' + me[0].strip() + '&party=2')
+    qstr.append('http://' + others[0].strip() + ":" + str(portNum) + '/v2/cohortCoordinatedQuery?ccc=' + ccc + '&host=' + me[0].strip() + '&party=1')
+    qstr.append('http://' + others[1].strip() + ":" + str(portNum) + '/v2/cohortCoordinatedQuery?ccc=' + ccc + '&host=' + me[0].strip() + '&party=2')
 
-#    print('IT EQUALS: http://' + others[0].strip() + '/v2/cohortCoordinatedQuery?ccc=' + ccc + '&host=' + me[0].strip() + '&party=1')
-#    print('IT EQUALS: http://' + others[1].strip() + '/v2/cohortCoordinatedQuery?ccc=' + ccc + '&host=' + me[0].strip() + '&party=2')
     print('IT EQUALS: ' + qstr[0])
     print('IT EQUALS: ' + qstr[1])
 
-    idx=0
-    parties=[]
-    for u in others:
-        parties.append(u.strip().split(':')[0])
-        print ('PARTY ' + parties[idx])
-        idx = idx+ 1
+# Looks like this next block is left over debugging code. It's a shame
+# there isn't a good way to get any debugging in flask code.
+# There's too much timing dependency and supporting cruft (process
+# state in Linux, for instance - hupped?) to run as standalone code in spyder.
 
-#    with urllib.request.urlopen('http://' + others[0].strip() + '/v2/cohortCoordinatedQuery?ccc=' + ccc + '&host=' + me[0].strip() + '&party=1') as f:
-#        throwaway = f.read(1000)
-#    with urllib.request.urlopen('http://' + others[1].strip() + '/v2/cohortCoordinatedQuery?ccc=' + ccc + '&host=' + me[0].strip() +'&party=2') as f:
-#        throwaway = f.read(1000)
+#    idx=0
+#    for u in others:
+#        print ('PARTY ' + u)
+#
+
+# it's OK to do these next two sequentially because the server's
+# cohortCoordinatedQuery always returns immediately. The SPDZ/2
+# engine is the only asynchronous component.
+
     with urllib.request.urlopen(qstr[0]) as f:
         throwaway = f.read(1000)
     with urllib.request.urlopen(qstr[1]) as f:
@@ -130,8 +146,10 @@ def cohortQuery():
 
     print('THROWAWAY: ' + throwaway.decode('UTF-8'))
 
+
+
 # Fourth: start the SPDZ client with our count. This will return (eventually, 
-# after the next few steps run) return the total SMC-computed count.
+# returning the total SMC-computed count.
 
     clientxcmd = '/home/ec2-user/impact-bin/runSMC.sh ' + localCountResultString + ' ' + me[0].strip()+ ' 0'
     print (clientxcmd)
@@ -154,7 +172,7 @@ def cohortQuery():
 
 @app.route('/v2/cohortCoordinatedQuery')
 def cohortCoordinatedQuery():
-    print('INCOHORTCOORDINATED')
+    print('IN COHORTCOORDINATEDQUERY')
     requestQueryString = request.query_string.decode('UTF-8')
     print(requestQueryString)
     ccc = request.args.get('ccc', '0')
@@ -162,23 +180,7 @@ def cohortCoordinatedQuery():
     spdzHost = request.args.get('host', '1')
 
 # First Step: do our own database query for cohort count
-    conn = sqlite3.connect(app.config['DATABASE'])
-    c=conn.cursor()
-    query ="select candidatecount from candidates where study = '" + ccc + "' ;"
-    print('Query='+ query)
-    c.execute(query)
-    data=c.fetchone()
-    if data is None:
-        localCount = 222222
-    else:
-        localCount = int(data[0])
-    localCountResultString = str(localCount)
-
-    with open('/home/ec2-user/others') as f:                                   
-        others = f.read().splitlines()                                         
-    with open('/home/ec2-user/me') as g:                                       
-        me = g.read().splitlines()           
-
+    localCountResultString = queryForMatchCount(ccc, app.config['DATABASE'])
 
 # Second: start the SPDZ client with our count. This will return (eventually, 
 # after the next few steps run) return the total SMC-computed count.
@@ -190,8 +192,8 @@ def cohortCoordinatedQuery():
     print ('coord query ran the playercmd OK.')
 
 # Third: return a success code - SPDZ/2 is working in the background, we don't know
-# if it's going to work or not.
-
+# if it's going to work or not. Nor is there anything we can do if it doesn't.
+# SPDZ/2 will eventually timeout if the command fails.
 
     return 'SUCCESS\n'
 
