@@ -2,9 +2,8 @@
 SMC-related code, configuration files and docs
 
 
-===========================
 THINGS TO KNOW...
-===========================
+---
 
 1) export LD_LIBRARY_PATH=/usr/local/lib   # may not need now after ldconfig
 2) export TERM=xterm-256color   # needed for zenburn theme - avoid eye pain.
