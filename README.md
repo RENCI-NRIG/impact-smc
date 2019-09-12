@@ -12,7 +12,7 @@ function, known to each of them, using input values that are only
 known by their owners. This makes group research much more feasible
 across institutional boundaries. The ImPACT SMC implementation is
 currently focussed on “cohort discovery”. This task is, simply stated,
-dtermining if there are enough potential study participants who meet a
+determining if there are enough potential study participants who meet a
 specific set of criteria. The project is, of course, broadly applicable
 to any problem domain.
 
@@ -88,18 +88,18 @@ addresses
 There are a few configuration details to take care of:
 
     1. export TERM=xterm-256color     This will make emacs (provided) much more pleasant.
-    2. emacs ~/me    		      	   	     File contains 1 line: your public-facing IP address.
-    3. emacs ~/others				     	  	   Public IP addresses of other parties.
-    4. Emacs ~/port						   	     	       Port number to run on – 5008 recommended.
-    5. Emacs ~/parties								       	    	   List of the IP addresses of all the parties, yourself included.
-       	     											   	This is an artifact of old code and will be soon removed.
-													     	   	    Used only for key generation.
-    6. Emacs ~/ICEES													    	      “1” if using ICEES (healthcare data exchange), else “0”.
-    7. source activate impact													      	  We use Anaconda to safely manage python packages but it
- isn’t strictly necessary (dependencies are met by the VM
- image).
-    8. Export FLASK_APP=flaskr		Name of the application...
-    9. flask run –host=0.0.0.0 –port=5008    ...and run it.
+    2. emacs ~/me		      File contains 1 line: your public-facing IP address.
+    3. emacs ~/others		      Public IP addresses of other parties.
+    4. emacs ~/port		      Port number to run on – 5008 recommended.
+    5. emacs ~/parties		      List of the IP addresses of all the parties, yourself included.
+       	     			      This is an artifact of old code and will be soon removed.
+				      Used only for key generation.
+    6. emacs ~/ICEES		      “1” if using ICEES (healthcare data exchange), else “0”.
+    6. emacs ~/keymaster	      dns-resolvable name of party 0 for the purpose of key generation.
+    7. source activate impact	      We use Anaconda to safely manage python packages but it isn’t
+       	      	       		      strictly necessary (dependencies are met by the VM image).
+    8. export FLASK_APP=flaskr	      Name of the application...
+    9. flask run -–host=0.0.0.0 -–port=5008    ...and run it.
 
 
 
@@ -109,7 +109,25 @@ There are a few configuration details to take care of:
 
 TODO
 
+1. Install the latest SPDZ/2.
 
+1A. Install GMP
+sudo yum install gmp gmp-devel gmp-static
+
+1B. Install NTL (Number Theory Library)
+
+wget https://www.shoup.net/ntl/ntl-11.3.2.tar.gz
+gunzip ntl-11.3.2.tar.gz
+tar xf ntl-11.3.2.tar
+cd ntl-11.3.2/src
+./configure
+make
+make check
+sudo make install
+
+yum install libsodium-devel libsodium-static valgrind-devel
+
+install the mpir library, -enable-cxx --enable-gmpcompat
 
 
 ### ImPACT SMC/MPC Architecture
@@ -144,7 +162,10 @@ accepts one argument, “ccc”, which is the identifier for the possible
 cohort. In our opening example, this value would be
 “AliceSmithExperiment31”.
 
-The cohortQuery page, receiving the identifier, proceeds to go to work. The first thing it does is a local database query to determine the potential cohort size for the local site. After finding that number, it proceeds to
+The cohortQuery page, receiving the identifier, proceeds to go to
+work. The first thing it does is a local database query to determine
+the potential cohort size for the local site. After finding that
+number, it proceeds to
 
 1. Read the configuration files to find the names of the other servers
 (at the other institutions) and the port number range to work with.
@@ -215,4 +236,56 @@ TODO – copy the diagrams from the google docs presentations into here.
 8) source activate impact
 9) export FLASK_APP=flaskr     # already done for you in .bashrc
 10) flask run --host=0.0.0.0 --port=5008
+
+
+---
+
+Making jupyter use https and require a password:
+
+1. Make keys
+
+cd ~
+mkdir ssl
+cd ssl
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout "cert.key" -out "cert.pem" -batch
+
+2. create password hash.
+
+ipython
+from IPython.lib import passwd 
+passwd()
+
+exit()
+
+3. Create config file.
+
+jupyter notebook --generate-config
+vi ~/.jupyter/jupyter_notebook_config.py
+
+To the end, append:
+
+c.NotebookApp.certfile = '/home/ec2-user/ssl/cert.pem' 
+# path to the certificate we  generated
+c.NotebookApp.keyfile = '/home/ec2-user/ssl/cert.key' 
+# path to the certificate key  we generated
+c.NotebookApp.password = 'sha1:<copy key generated in step above>'
+
+c.IPKernelApp.pylab = 'inline' 
+#auto enables Matplotlib in-line figures 
+c.NotebookApp.ip = '*' 
+#allows connection to jupyter server from other than localhost.
+#nbb: if using ssh tunnelling don't need this.
+#nbb: refer my medium blog on this.
+c.NotebookApp.open_browser = False
+#eliminates an error message during notebook startup
+
+4. Delete some residue that might theoretically still be around:
+
+rm ~/.jupyter/jupyter_notebook_config.json
+
+
+5. Profit!
+
+cd ~/whateverWorkingDirectory
+jupyter notebook --port=4991
 
