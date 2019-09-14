@@ -1,0 +1,39 @@
+#!/bin/bash
+
+mkdir spdz-dependencies
+cd spdz-dependencies
+
+sudo yum install -y libsodium-devel yasm
+
+wget http://mpir.org/mpir-3.0.0.tar.bz2
+bunzip2 mpir-3.0.0.tar.bz2
+tar xf mpir-3.0.0.tar
+cd mpir-3.0.0
+./configure --prefix=/usr --enable-cxx --enable-gmpcompat --enable-static
+make -j 47
+make install
+
+pushd /usr/lib64
+sudo ln -s libgmpxx.so.4 libgmpxx.so
+sudo ln -s libgmp.so.10 libgmp.so
+popd
+
+cd ..
+wget https://www.shoup.net/ntl/ntl-11.3.4.tar.gz
+tar xfz ntl-11.3.4.tar.gz
+cd ntl-11.3.4
+cd src
+./configure
+make
+
+sudo yum install -y valgrind-devel
+cd
+git clone https://github.com/bristolcrypto/SPDZ-2.git
+cd SPDZ-2
+echo "USE_NTL = 1" > CFGprefix
+echo "MOD = -DMAX_MOD_SZ=6" >> CFGprefix
+cat CFGprefix CONFIG > CONFIG.NEW
+mv CONFIG CONFIG.preserve
+mv CONFIG.NEW CONFIG
+make -j 47
+
