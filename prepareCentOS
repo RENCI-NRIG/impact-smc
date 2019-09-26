@@ -37,3 +37,53 @@ mv CONFIG CONFIG.preserve
 mv CONFIG.NEW CONFIG
 make -j 47
 
+
+cd
+wget https://repo.anaconda.com/archive/Anaconda2-2019.07-Linux-x86_64.sh
+# This is absurd, yes, but SPDZ has a hard dependency on Python2 right now, and
+# always will. Moving to SCALE or MAMBA won't help - in any case, those two are the
+# future of this protocol so someone will have to port the code anyway. There may be
+# some work involved in migrating. Then again, Python2 may linger for another decade.
+chmod 0777 Anaconda2-2019.07-Linux-x86_64.sh 
+# Install you some Anaconda. :-)  Might take a while.
+./Anaconda2-2019.07-Linux-x86_64.sh 
+
+
+cd ~
+mkdir ssl
+cd ssl
+# may not need sudo? Trying without it...
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout "cert.key" -out "cert.pem" -batch
+
+# run ipython, use its module to get and hash a password. Write it down - XXXX
+ipython
+from IPython.lib import passwd 
+passwd()
+exit()
+
+# check for config file:
+ls ~/.jupyter/jupyter_notebook_config.py
+# create if need be:
+jupyter notebook --generate-config
+
+# append to end of notebook config file:
+#  c.NotebookApp.certfile = '/home/cc/ssl/cert.pem' 
+
+# path to the certificate we  generated
+#  c.NotebookApp.keyfile = '/home/cc/ssl/cert.key' 
+
+# path to the certificate key  we generated
+#  c.NotebookApp.password = 'sha1:<copy key generated in step above>'
+#  c.IPKernelApp.pylab = 'inline' 
+
+#auto enables Matplotlib in-line figures 
+#  c.NotebookApp.ip = '0.0.0.0' 
+
+#allows connection to jupyter server from other than localhost.
+#nbb: if using ssh tunnelling don't need this.
+#nbb: refer my medium blog on this.
+#  c.NotebookApp.open_browser = False
+#eliminates an error message during notebook startup
+
+rm .jupyter/jupyter_notebook_config.json
+
