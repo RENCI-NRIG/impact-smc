@@ -243,27 +243,27 @@ TODO – copy the diagrams from the google docs presentations into here.
 Making jupyter use https and require a password:
 
 1. Make keys
-
+```
 cd ~
 mkdir ssl
 cd ssl
 sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout "cert.key" -out "cert.pem" -batch
-
+```
 2. create password hash.
-
+```
 ipython
 from IPython.lib import passwd 
 passwd()
 
 exit()
-
+```
 3. Create config file.
-
+```
 jupyter notebook --generate-config
 vi ~/.jupyter/jupyter_notebook_config.py
-
+```
 To the end, append:
-
+```
 c.NotebookApp.certfile = '/home/ec2-user/ssl/cert.pem' 
 # path to the certificate we  generated
 c.NotebookApp.keyfile = '/home/ec2-user/ssl/cert.key' 
@@ -278,14 +278,14 @@ c.NotebookApp.ip = '*'
 #nbb: refer my medium blog on this.
 c.NotebookApp.open_browser = False
 #eliminates an error message during notebook startup
-
+```
 4. Delete some residue that might theoretically still be around:
-
+```
 rm ~/.jupyter/jupyter_notebook_config.json
+```
 
-
-5. Profit!
-
+5. Profit! (Actually, just run the notebook server)
+```
 cd ~/whateverWorkingDirectory
 jupyter notebook --port=4991
-
+```
